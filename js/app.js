@@ -43,6 +43,64 @@
     }
 })();
 
+// ===== VALIDATION FUNCTIONS =====
+
+/**
+ * validarECalcular - Validates and retrieves distance in both manual and automatic modes
+ * 
+ * Handles two scenarios:
+ * 1. Manual mode: User enters distance manually
+ * 2. Automatic mode: Distance is looked up from RoutesDB
+ * 
+ * Shows appropriate error messages for each mode.
+ * 
+ * @returns {number|null} Valid distance in km, or null if validation fails
+ */
+function validarECalcular() {
+    const manualCheckbox = document.getElementById('manual-distance');
+    const distanceInput = document.getElementById('distance');
+    const originInput = document.getElementById('origin');
+    const destinationInput = document.getElementById('destination');
+
+    const isManual = manualCheckbox.checked;
+    let distancia;
+
+    if (isManual) {
+        // Manual mode: get distance from input field
+        distancia = parseFloat(distanceInput.value);
+
+        if (!distancia || distancia <= 0) {
+            alert('❌ Por favor, preencha a distância manual com um valor maior que 0!');
+            return null;
+        }
+    } else {
+        // Automatic mode: search distance in routes database
+        const origem = originInput.value.trim();
+        const destino = destinationInput.value.trim();
+
+        if (!origem || !destino) {
+            alert('❌ Por favor, preencha a origem e o destino!');
+            return null;
+        }
+
+        // Search distance in RoutesDB
+        distancia = RoutesDB.findDistance(origem, destino);
+
+        if (distancia === null || distancia < 0) {
+            alert('❌ Rota não encontrada! Por favor, ative o modo manual e insira a distância.');
+            return null;
+        }
+
+        if (distancia === 0) {
+            alert('❌ Origem e destino não podem ser iguais!');
+            return null;
+        }
+    }
+
+    // If we reach here, distance is valid
+    return distancia;
+}
+
 // ===== FORM SUBMIT HANDLER =====
 
 /**
@@ -59,13 +117,11 @@ function handleFormSubmit(event) {
     // 2. Get all form values
     const originInput = document.getElementById('origin');
     const destinationInput = document.getElementById('destination');
-    const distanceInput = document.getElementById('distance');
-    const transportModeRadios = document.getElementsByName('transport-mode');
+    const transportModeRadios = document.getElementsByName('transport');
 
     // Trim whitespace from text inputs
     const origin = originInput.value.trim();
     const destination = destinationInput.value.trim();
-    const distance = parseFloat(distanceInput.value);
 
     // Get checked radio button value for transport mode
     let transportMode = null;
@@ -79,21 +135,21 @@ function handleFormSubmit(event) {
     // ===== VALIDATE INPUTS =====
 
     // 3. Validate inputs
-    // Check if origin, destination, distance are filled
-    if (!origin || !destination || !distance) {
-        alert('❌ Por favor, preencha todos os campos!');
-        return;
-    }
-
-    // Check if distance is greater than 0
-    if (distance <= 0) {
-        alert('❌ A distância deve ser maior que 0 km!');
+    // Check if origin and destination are filled
+    if (!origin || !destination) {
+        alert('❌ Por favor, preencha a origem e o destino!');
         return;
     }
 
     // Check if transport mode is selected
     if (!transportMode) {
         alert('❌ Por favor, selecione um modo de transporte!');
+        return;
+    }
+
+    // Validate and get distance
+    const distance = validarECalcular();
+    if (distance === null) {
         return;
     }
 
