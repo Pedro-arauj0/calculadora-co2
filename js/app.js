@@ -35,10 +35,86 @@
             return;
         }
 
-        // 4. Add submit event listener to form
-        calculatorForm.addEventListener('submit', handleFormSubmit);
+        // 4. Get the calculate button element
+        const btnCalculate = calculatorForm.querySelector('button[type="submit"]');
 
-        // 5. Log to console
+        if (!btnCalculate) {
+            console.error('Calculate button element not found');
+            return;
+        }
+
+        // 5. Add click event listener to button with async handler
+        btnCalculate.addEventListener('click', async (event) => {
+            // Prevent form submission
+            event.preventDefault();
+
+            // 1. Activate loading state (spinner animation)
+            btnCalculate.classList.add('loading');
+            btnCalculate.disabled = true;
+
+            try {
+                // 2. Collect and validate form data
+                const dados = obterDadosDoFormulario();
+                if (!dados) {
+                    throw new Error('❌ Por favor, verifique todos os campos!');
+                }
+
+                // Get submit button for loading state
+                const submitButton = event.target;
+
+                // Hide previous results sections
+                UI.hideElement('results-content');
+                UI.hideElement('comparison-content');
+                UI.hideElement('carbon-credits-content');
+
+                // 3. Perform asynchronous calculations
+                const resultado = await calcularEmissoes(dados);
+
+                // 4. Render results section
+                const resultsContent = document.getElementById('results-content');
+                if (resultsContent) {
+                    resultsContent.innerHTML = UI.renderResults(resultado.resultsData);
+                    UI.showElement('results-content');
+                }
+
+                // Render comparison section
+                const comparisonContent = document.getElementById('comparison-content');
+                if (comparisonContent) {
+                    comparisonContent.innerHTML = UI.renderComparison(
+                        resultado.comparisonData, 
+                        resultado.selectedMode
+                    );
+                    UI.showElement('comparison-content');
+                }
+
+                // Render carbon credits section
+                const creditsContent = document.getElementById('carbon-credits-content');
+                if (creditsContent) {
+                    creditsContent.innerHTML = UI.renderCarbonCredits(resultado.creditsData);
+                    UI.showElement('carbon-credits-content');
+                }
+
+                // Scroll to results section
+                UI.scrollToElement('results-content');
+
+                // Log success
+                console.log('✅ Cálculo concluído com sucesso!', resultado);
+
+            } catch (error) {
+                // Log error for debugging
+                console.error('Erro detectado:', error.message);
+                
+                // Show user-friendly error message
+                alert(error.message || '❌ Ocorreu um erro ao processar o cálculo. Por favor, tente novamente.');
+
+            } finally {
+                // 5. Most important: Always remove loading state (success or error)
+                btnCalculate.classList.remove('loading');
+                btnCalculate.disabled = false;
+            }
+        });
+
+        // 6. Log to console
         console.log('✅ Calculadora inicializada!');
     }
 })();
