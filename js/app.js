@@ -101,29 +101,34 @@ function validarECalcular() {
     return distancia;
 }
 
-// ===== FORM SUBMIT HANDLER =====
+// ===== FORM DATA COLLECTION =====
 
 /**
- * handleFormSubmit - Processes form submission and displays results
+ * obterDadosDoFormulario - Collects and validates all form data
  * 
- * @param {Event} event - Form submit event
+ * Gathers data from form inputs and validates them:
+ * - Origin and destination cities
+ * - Selected transport mode
+ * - Distance (from automatic or manual mode)
+ * 
+ * @returns {Object|null} Object with form data or null if validation fails
  */
-function handleFormSubmit(event) {
-    // 1. Prevent default form submission
-    event.preventDefault();
-
-    // ===== GET FORM VALUES =====
-
-    // 2. Get all form values
+function obterDadosDoFormulario() {
     const originInput = document.getElementById('origin');
     const destinationInput = document.getElementById('destination');
     const transportModeRadios = document.getElementsByName('transport');
 
-    // Trim whitespace from text inputs
+    // Get and trim text inputs
     const origin = originInput.value.trim();
     const destination = destinationInput.value.trim();
 
-    // Get checked radio button value for transport mode
+    // Validate origin and destination
+    if (!origin || !destination) {
+        alert('❌ Por favor, preencha a origem e o destino!');
+        return null;
+    }
+
+    // Get checked transport mode
     let transportMode = null;
     for (const radio of transportModeRadios) {
         if (radio.checked) {
@@ -132,127 +137,169 @@ function handleFormSubmit(event) {
         }
     }
 
-    // ===== VALIDATE INPUTS =====
-
-    // 3. Validate inputs
-    // Check if origin and destination are filled
-    if (!origin || !destination) {
-        alert('❌ Por favor, preencha a origem e o destino!');
-        return;
-    }
-
-    // Check if transport mode is selected
+    // Validate transport mode
     if (!transportMode) {
         alert('❌ Por favor, selecione um modo de transporte!');
-        return;
+        return null;
     }
 
     // Validate and get distance
     const distance = validarECalcular();
     if (distance === null) {
+        return null;
+    }
+
+    // Return collected data object
+    return {
+        origin,
+        destination,
+        distance,
+        transportMode
+    };
+}
+
+// ===== ASYNC CALCULATION FUNCTION =====
+
+/**
+ * calcularEmissoes - Asynchronous function to perform all calculations
+ * 
+ * Simulates processing delay and performs all emission calculations:
+ * - Selected transport mode emission
+ * - Car baseline emission
+ * - Savings comparison
+ * - All modes comparison
+ * - Carbon credits calculation
+ * 
+ * @param {Object} dados - Form data object containing distance and mode
+ * @returns {Promise<Object>} Resolved with calculation results object
+ */
+async function calcularEmissoes(dados) {
+    // Simulate processing delay (1500ms)
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Calculate emission for selected mode
+    const selectedEmission = Calculator.calculateEmission(dados.distance, dados.transportMode);
+
+    // Calculate car emission as baseline
+    const carEmission = Calculator.calculateEmission(dados.distance, 'car');
+
+    // Calculate savings compared to car
+    const savingsData = dados.transportMode !== 'car' 
+        ? Calculator.calculateSavings(selectedEmission, carEmission)
+        : null;
+
+    // Calculate all modes comparison
+    const allModesData = Calculator.calculateAllModes(dados.distance);
+
+    // Calculate carbon credits and price estimate
+    const creditsAmount = Calculator.calculateCarbonCredits(selectedEmission);
+    const priceEstimate = Calculator.estimateCreditPrice(creditsAmount);
+
+    // Return results object
+    return {
+        resultsData: {
+            origin: dados.origin,
+            destination: dados.destination,
+            distance: dados.distance,
+            emission: selectedEmission,
+            mode: dados.transportMode,
+            savings: savingsData
+        },
+        comparisonData: allModesData,
+        selectedMode: dados.transportMode,
+        creditsData: {
+            credits: creditsAmount,
+            price: priceEstimate
+        }
+    };
+}
+
+// ===== FORM SUBMIT HANDLER =====
+
+/**
+ * handleFormSubmit - Processes form submission with async calculations
+ * 
+ * Workflow:
+ * 1. Prevents default form submission
+ * 2. Collects and validates form data
+ * 3. Shows loading state with spinner animation
+ * 4. Performs async calculations
+ * 5. Renders and displays results
+ * 6. Handles errors gracefully
+ * 7. Always removes loading state (finally block)
+ * 
+ * @param {Event} event - Form submit event
+ */
+async function handleFormSubmit(event) {
+    // Prevent default form submission
+    event.preventDefault();
+
+    // Collect and validate form data
+    const dados = obterDadosDoFormulario();
+    if (!dados) {
         return;
     }
 
-    // ===== SHOW LOADING STATE =====
-
-    // 4. Get submit button element
+    // Get submit button element for loading state
     const submitButton = event.target.querySelector('button[type="submit"]');
 
-    // 5. Call UI.showLoading(button) to show loading state
-    UI.showLoading(submitButton);
+    try {
+        // Add loading state with spinner animation
+        if (submitButton) {
+            submitButton.classList.add('loading');
+            UI.showLoading(submitButton);
+        }
 
-    // 6. Hide previous results sections
-    UI.hideElement('results-content');
-    UI.hideElement('comparison-content');
-    UI.hideElement('carbon-credits-content');
+        // Hide previous results sections
+        UI.hideElement('results-content');
+        UI.hideElement('comparison-content');
+        UI.hideElement('carbon-credits-content');
 
-    // ===== PROCESS DATA WITH DELAY =====
+        // Perform asynchronous calculations
+        const resultado = await calcularEmissoes(dados);
 
-    // 7. Use setTimeout with 1500ms delay to simulate processing
-    setTimeout(function() {
-        try {
-            // ===== CALCULATIONS =====
-
-            // Calculate emission for selected mode
-            const selectedEmission = Calculator.calculateEmission(distance, transportMode);
-
-            // Calculate car emission as baseline
-            const carEmission = Calculator.calculateEmission(distance, 'car');
-
-            // Calculate savings compared to car
-            const savingsData = transportMode !== 'car' 
-                ? Calculator.calculateSavings(selectedEmission, carEmission)
-                : null;
-
-            // Calculate all modes comparison
-            const allModesData = Calculator.calculateAllModes(distance);
-
-            // Calculate carbon credits and price estimate
-            const creditsAmount = Calculator.calculateCarbonCredits(selectedEmission);
-            const priceEstimate = Calculator.estimateCreditPrice(creditsAmount);
-
-            // ===== BUILD DATA OBJECTS FOR RENDERING =====
-
-            // Results data object
-            const resultsData = {
-                origin: origin,
-                destination: destination,
-                distance: distance,
-                emission: selectedEmission,
-                mode: transportMode,
-                savings: savingsData
-            };
-
-            // Credits data object
-            const creditsData = {
-                credits: creditsAmount,
-                price: priceEstimate
-            };
-
-            // ===== RENDER AND DISPLAY RESULTS =====
-
-            // Call UI.renderResults() and set innerHTML of results-content
-            const resultsContent = document.getElementById('results-content');
-            if (resultsContent) {
-                resultsContent.innerHTML = UI.renderResults(resultsData);
-            }
-
-            // Call UI.renderComparison() and set innerHTML of comparison-content
-            const comparisonContent = document.getElementById('comparison-content');
-            if (comparisonContent) {
-                comparisonContent.innerHTML = UI.renderComparison(allModesData, transportMode);
-            }
-
-            // Call UI.renderCarbonCredits() and set innerHTML of carbon-credits-content
-            const creditsContent = document.getElementById('carbon-credits-content');
-            if (creditsContent) {
-                creditsContent.innerHTML = UI.renderCarbonCredits(creditsData);
-            }
-
-            // Show all three sections
+        // Render results section
+        const resultsContent = document.getElementById('results-content');
+        if (resultsContent) {
+            resultsContent.innerHTML = UI.renderResults(resultado.resultsData);
             UI.showElement('results-content');
+        }
+
+        // Render comparison section
+        const comparisonContent = document.getElementById('comparison-content');
+        if (comparisonContent) {
+            comparisonContent.innerHTML = UI.renderComparison(
+                resultado.comparisonData, 
+                resultado.selectedMode
+            );
             UI.showElement('comparison-content');
+        }
+
+        // Render carbon credits section
+        const creditsContent = document.getElementById('carbon-credits-content');
+        if (creditsContent) {
+            creditsContent.innerHTML = UI.renderCarbonCredits(resultado.creditsData);
             UI.showElement('carbon-credits-content');
+        }
 
-            // Scroll to results section
-            UI.scrollToElement('results-content');
+        // Scroll to results section
+        UI.scrollToElement('results-content');
 
-            // Hide loading state
-            UI.hideLoading(submitButton);
+        // Log success
+        console.log('✅ Cálculo concluído com sucesso!', resultado);
 
-            console.log('✅ Cálculo concluído com sucesso!', resultsData);
+    } catch (error) {
+        // Log error to console for debugging
+        console.error('❌ Erro ao calcular emissões:', error);
 
-        } catch (error) {
-            // ===== ERROR HANDLING =====
+        // Show user-friendly error message
+        alert('❌ Ocorreu um erro ao processar o cálculo. Por favor, tente novamente.');
 
-            // Log error to console
-            console.error('❌ Erro ao calcular emissões:', error);
-
-            // Show user-friendly alert
-            alert('❌ Ocorreu um erro ao processar o cálculo. Por favor, tente novamente.');
-
-            // Hide loading state
+    } finally {
+        // Always remove loading state (happens regardless of success/error)
+        if (submitButton) {
+            submitButton.classList.remove('loading');
             UI.hideLoading(submitButton);
         }
-    }, 1500);
+    }
 }
